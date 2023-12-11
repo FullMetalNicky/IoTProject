@@ -100,7 +100,7 @@ void setup()
   
 
 }
-
+/*
 void loop() {
 
   Serial.println("begin loop");
@@ -109,4 +109,15 @@ void loop() {
   drainContainer(10000);
 
 
+}
+*/
+
+
+void loop(){ 
+  //geiger.start();
+  delay(3000);
+  //geiger.pause();
+  Serial.println(geiger.getCPM());
+  Serial.println(geiger.getnSvh());
+  Serial.println(geiger.getuSvh());
 }
