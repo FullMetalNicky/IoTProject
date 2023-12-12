@@ -10,7 +10,7 @@ analysis is done
 TBD
 
 ## Installation 
-The system was test on Arduino Portenta H7, and may have compatibility issues with other hardware. 
+The system was tested on Arduino Portenta H7, and may have compatibility issues with other hardware. 
 Required Arduino packages:
 * TinyGPS (by Mikal Hart)
 * OneWireNg
