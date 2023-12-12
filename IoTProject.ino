@@ -25,11 +25,29 @@
  * 1-wire bus pin number.
  */
 #ifndef OW_PIN
-# define OW_PIN         5
+# define OW_PIN         6
 #endif
 
 #define SensorPin A0          // the pH meter Analog output is connected with the Arduino’s Analog
 
+
+#include <DFRobot_Geiger.h>
+#if defined ESP32
+#define detect_pin D3
+#else
+#define detect_pin 3
+#endif
+DFRobot_Geiger  geiger(detect_pin);
+
+//#include "PERIPUMP.h"
+#include "Servo.h"
+
+Servo s;
+#define pump_pin 5
+
+#include <TinyGPS.h>
+TinyGPS gps;
+float flat, flon;
 
 /*
  * If defined: sensors powered parasitically.
@@ -201,9 +219,6 @@ long getTemperature()
     return temperature;
 }
 
-
-
-
 void setupPHSensor()
 {
   pinMode(13,OUTPUT);  
@@ -256,15 +271,112 @@ float getPHValues()
  
 }
 
+void setupRadioactiveSensor()
+{
+  geiger.start();
+}
+
+float getRadioactiveValues()
+{
+  float CPM = geiger.getCPM();
+  float nSvh = geiger.getnSvh();
+  float uSvh = geiger.getuSvh();
+
+  return nSvh;
+}
+
+void setupPump()
+{
+  s.attach(pump_pin);  
+}
+
+void fillContainer(int ptime)
+{
+  Serial.println("Start fill!");
+  s.write(0);
+  delay(ptime);
+  s.write(90);
+  delay(1000);
+  Serial.println("Finish fill!");
+}
+
+void drainContainer(int ptime)
+{
+  Serial.println("Start drain!");
+  s.write(180);
+  delay(ptime);
+  s.write(90);
+  delay(1000);
+   Serial.println("Finish drain!");
+}
+
+void setupGPS()
+{
+   Serial1.begin(9600);
+}
+
+float getGPSvalues()
+{
+   // gps
+  bool newData = false;
+  unsigned long chars;
+  unsigned short sentences, failed;
+
+  // For one second we parse GPS data and report some key values
+  for (unsigned long start = millis(); millis() - start < 1000;)
+  {
+    while (Serial1.available())
+    {
+      char c = Serial1.read();
+      //Serial.write(c); // uncomment this line if you want to see the GPS data flowing
+      if (gps.encode(c)) // Did a new valid sentence come in?
+        Serial.print("DATA FOUND -----------------------------------------------------------------------------------------");
+        newData = true;
+    }
+  }
+
+  if (newData)
+  {
+    //float flat, flon;
+    unsigned long age;
+    gps.f_get_position(&flat, &flon, &age);
+    // Serial.print("LAT=");
+    // Serial.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
+    // Serial.print(" LON=");
+    // Serial.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
+    // Serial.print(" SAT=");
+    // Serial.print(gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites());
+    // Serial.print(" PREC=");
+    // Serial.print(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop());
+  }
+  
+  gps.stats(&chars, &sentences, &failed);
+  Serial.print(" CHARS=");
+  Serial.print(chars);
+  Serial.print(" SENTENCES=");
+  Serial.print(sentences);
+  Serial.print(" CSUM ERR=");
+  Serial.println(failed);
+  if (chars == 0)
+    Serial.println("** No characters received from GPS: check wiring **");
+
+  return 0.0;
+}
 
 void setup()
 {
   setupTempSensor();
   setupPHSensor();
+  setupRadioactiveSensor();
+  setupPump();
+  setupGPS();
 }
 
 void loop()
 {
+
+  fillContainer(50000);
+
   long temperature = getTemperature();
   Serial.print("Temp:");
   if (temperature < 0) {
@@ -286,8 +398,20 @@ void loop()
   delay(800);
   digitalWrite(13, LOW); 
 
-  Serial.println("----------");
+  float nSvh = getRadioactiveValues();
+  Serial.print("nSvh:");  
+  Serial.print(nSvh,2);
+  Serial.println(" ");
 
+  Serial.print("LAT=");
+  Serial.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
+  Serial.print(" LON=");
+  Serial.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
+  Serial.println(" ");
+
+
+  drainContainer(50000);
+  Serial.println("----------");
 
   delay(1000);
 }
