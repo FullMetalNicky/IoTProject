@@ -48,6 +48,13 @@ Servo s;
 #include <TinyGPS.h>
 TinyGPS gps;
 float flat, flon;
+float last_flat = 0.0;
+float last_flon = 0.0;
+float dlon = 0.0;
+float dlat = 0.0;
+
+#include "AS726X.h"
+AS726X SpectralSensor;
 
 /*
  * If defined: sensors powered parasitically.
@@ -363,6 +370,26 @@ float getGPSvalues()
   return 0.0;
 }
 
+void setupSpectral()
+{
+  Wire.begin();
+  SpectralSensor.begin();
+}
+
+float getSpectralValues()
+{
+  SpectralSensor.takeMeasurements();
+  float R = SpectralSensor.getCalibratedR();
+  float S = SpectralSensor.getCalibratedS();
+  float T = SpectralSensor.getCalibratedT();
+  float U = SpectralSensor.getCalibratedU();
+  float V = SpectralSensor.getCalibratedV();
+  float W = SpectralSensor.getCalibratedW();
+  float F = SpectralSensor.getTemperatureF();
+
+  return R;
+}
+
 void setup()
 {
   setupTempSensor();
@@ -370,49 +397,64 @@ void setup()
   setupRadioactiveSensor();
   setupPump();
   setupGPS();
+  setupSpectral();
 }
 
 void loop()
 {
 
-  fillContainer(50000);
+  getGPSvalues();
 
-  long temperature = getTemperature();
-  Serial.print("Temp:");
-  if (temperature < 0) {
-      temperature = -temperature;
-      Serial.print('-');
+  if ((fabs(last_flat - flat) >= dlat) || (fabs(last_flon - flon) >= dlon)) // 0.1 diff is 11 km
+  {
+    last_flat = flat;
+    last_flon = flon;
+
+    Serial.print("LAT=");
+    Serial.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
+    Serial.print(" LON=");
+    Serial.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
+    Serial.println(" ");
+
+    
+
+    fillContainer(50000);
+
+    long temperature = getTemperature();
+    Serial.print("Temp:");
+    if (temperature < 0) {
+        temperature = -temperature;
+        Serial.print('-');
+    }
+    Serial.print(temperature / 1000);
+    Serial.print('.');
+    Serial.print(temperature % 1000);
+    Serial.print(" C");
+
+    Serial.println();
+
+    float phValue = getPHValues();
+    Serial.print("pH:");  
+    Serial.print(phValue,2);
+    Serial.println(" ");
+    digitalWrite(13, HIGH);       
+    delay(800);
+    digitalWrite(13, LOW); 
+
+    float nSvh = getRadioactiveValues();
+    Serial.print("nSvh:");  
+    Serial.print(nSvh,2);
+    Serial.println(" ");
+
+    float R = getSpectralValues();
+    Serial.print("Spectral R: ");
+    Serial.print(R, 2);
+    Serial.println(" ");
+
+    drainContainer(50000);
+    Serial.println("----------");
+
+    delay(1000);
   }
-  Serial.print(temperature / 1000);
-  Serial.print('.');
-  Serial.print(temperature % 1000);
-  Serial.print(" C");
-
-  Serial.println();
-
-  float phValue = getPHValues();
-  Serial.print("pH:");  
-  Serial.print(phValue,2);
-  Serial.println(" ");
-  digitalWrite(13, HIGH);       
-  delay(800);
-  digitalWrite(13, LOW); 
-
-  float nSvh = getRadioactiveValues();
-  Serial.print("nSvh:");  
-  Serial.print(nSvh,2);
-  Serial.println(" ");
-
-  Serial.print("LAT=");
-  Serial.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
-  Serial.print(" LON=");
-  Serial.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
-  Serial.println(" ");
-
-
-  drainContainer(50000);
-  Serial.println("----------");
-
-  delay(1000);
 }
 
