@@ -63,7 +63,8 @@ AS726X SpectralSensor;
 long int last_time;
 long int dtime = 0; // 1000 * 60 * 60 * 24
 
-#define LED_PIN 4
+#define RED_LED_PIN 1
+#define GREEN_LED_PIN 2
 /*
  * If defined: sensors powered parasitically.
  */
@@ -410,19 +411,34 @@ int analize(float temperature, float phValue, float nSvh, float R)
   return res;
 }
 
-void setupLED()
+void setupRedLED()
 {
-  pinMode(LED_PIN, OUTPUT);
+  pinMode(RED_LED_PIN, OUTPUT);
 }
 
 void redLEDOn()
 {
-  digitalWrite(LED_PIN, HIGH);
+  digitalWrite(RED_LED_PIN, HIGH);
 }
 
 void redLEDOff()
 {
-  digitalWrite(LED_PIN, LOW);
+  digitalWrite(RED_LED_PIN, LOW);
+}
+
+void setupGreenLED()
+{
+  pinMode(GREEN_LED_PIN, OUTPUT);
+}
+
+void greenLEDOn()
+{
+  digitalWrite(GREEN_LED_PIN, HIGH);
+}
+
+void greenLEDOff()
+{
+  digitalWrite(GREEN_LED_PIN, LOW);
 }
 
 void setup()
@@ -434,7 +450,8 @@ void setup()
   setupGPS();
   setupSpectral();
   last_time = millis();
-  //setupLED();
+  //setupRedLED();
+  // setupGreenLED();
 }
 
 void loop()
@@ -497,12 +514,14 @@ void loop()
     if (res)
     {
       Serial.print("Water quality analysis: FAIL");
+      //greenLEDOff();
       //redLEDOn();
     }
     else
     {
       Serial.print("Water quality analysis: PASS");
       //redLEDOff();
+      // greenLEDOn();
     }
     Serial.println(" ");
 
