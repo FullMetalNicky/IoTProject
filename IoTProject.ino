@@ -27,9 +27,12 @@
 #ifndef OW_PIN
 # define OW_PIN         6
 #endif
+float TEMP_HIGH = 30;
+float TEMP_LOW = 10;
 
 #define PHSensorPin A0          // the pH meter Analog output is connected with the Arduino’s Analog
-
+float PH_LOW = 6.5;
+float PH_HIGH = 8.5;
 
 #include <DFRobot_Geiger.h>
 #if defined ESP32
@@ -38,6 +41,7 @@
 #define geiger_pin 3
 #endif
 DFRobot_Geiger  geiger(geiger_pin);
+float GEIGER_HIGH = 200;
 
 //#include "PERIPUMP.h"
 #include "Servo.h"
@@ -50,12 +54,16 @@ TinyGPS gps;
 float flat, flon;
 float last_flat = 0.0;
 float last_flon = 0.0;
-float dlon = 0.0;
-float dlat = 0.0;
+float dlon = 0.0; // 0.0001
+float dlat = 0.0; // 0.0001
 
 #include "AS726X.h"
 AS726X SpectralSensor;
 
+long int last_time;
+long int dtime = 0; // 1000 * 60 * 60 * 24
+
+#define LED_PIN 4
 /*
  * If defined: sensors powered parasitically.
  */
@@ -390,6 +398,33 @@ float getSpectralValues()
   return R;
 }
 
+int analize(float temperature, float phValue, float nSvh, float R)
+{
+
+  int res = 0;
+  if ((temperature > TEMP_HIGH) || (temperature < TEMP_LOW)) res = 1;
+  if ((phValue > PH_HIGH) || (phValue < PH_LOW)) res = 1;
+  if (nSvh > GEIGER_HIGH) res = 1;
+  // if something with R
+
+  return res;
+}
+
+void setupLED()
+{
+  pinMode(LED_PIN, OUTPUT);
+}
+
+void redLEDOn()
+{
+  digitalWrite(LED_PIN, HIGH);
+}
+
+void redLEDOff()
+{
+  digitalWrite(LED_PIN, LOW);
+}
+
 void setup()
 {
   setupTempSensor();
@@ -398,27 +433,33 @@ void setup()
   setupPump();
   setupGPS();
   setupSpectral();
+  last_time = millis();
+  //setupLED();
 }
 
 void loop()
 {
 
   getGPSvalues();
+  long int curr_time = millis();
 
-  if ((fabs(last_flat - flat) >= dlat) || (fabs(last_flon - flon) >= dlon)) // 0.1 diff is 11 km
+  // check if we moved enough since the last check, or if the 24 hours passed since the last time
+  if ((fabs(last_flat - flat) >= dlat) || (fabs(last_flon - flon) >= dlon) || ((curr_time - last_time) > dtime)) // 0.01 diff is 1 km
   {
     last_flat = flat;
     last_flon = flon;
+    last_time = curr_time;
 
     Serial.print("LAT=");
     Serial.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
     Serial.print(" LON=");
     Serial.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
-    Serial.println(" ");
-
-    
+    Serial.println(" "); 
 
     fillContainer(50000);
+
+    // allow sensors to get to the correct values
+    delay(1000);
 
     long temperature = getTemperature();
     Serial.print("Temp:");
@@ -451,10 +492,23 @@ void loop()
     Serial.print(R, 2);
     Serial.println(" ");
 
+    // chek if values are within the desired range
+    int res = analize(temperature, phValue, nSvh, R);
+    if (res)
+    {
+      Serial.print("Water quality analysis: FAIL");
+      //redLEDOn();
+    }
+    else
+    {
+      Serial.print("Water quality analysis: PASS");
+      //redLEDOff();
+    }
+    Serial.println(" ");
+
     drainContainer(50000);
     Serial.println("----------");
 
-    delay(1000);
   }
 }
 
