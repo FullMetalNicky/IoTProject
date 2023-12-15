@@ -17,5 +17,6 @@ Required Arduino packages:
 * PERIPUMP
 * DFRobot_PH
 * DFRobot_Geiger
+* SparkFun_AS726X
 
 As DFRobot_Geiger cannot be found on the Arduino library manager, you can download the .zip file from [here](https://github.com/cdjq/DFRobot_Geiger), and manually include it in the project. 
