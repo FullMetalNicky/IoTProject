@@ -28,16 +28,16 @@
 # define OW_PIN         6
 #endif
 
-#define SensorPin A0          // the pH meter Analog output is connected with the Arduino’s Analog
+#define PHSensorPin A0          // the pH meter Analog output is connected with the Arduino’s Analog
 
 
 #include <DFRobot_Geiger.h>
 #if defined ESP32
-#define detect_pin D3
+#define geiger_pin D3
 #else
-#define detect_pin 3
+#define geiger_pin 3
 #endif
-DFRobot_Geiger  geiger(detect_pin);
+DFRobot_Geiger  geiger(geiger_pin);
 
 //#include "PERIPUMP.h"
 #include "Servo.h"
@@ -243,7 +243,7 @@ float getPHValues()
   analogReadResolution(10);
   for(int i=0;i<10;i++)       //Get 10 sample value from the sensor for smooth the value
   { 
-    buf[i]=analogRead(SensorPin);
+    buf[i]=analogRead(PHSensorPin);
     delay(10);
   }
   for(int i=0;i<9;i++)        //sort the analog from small to large
