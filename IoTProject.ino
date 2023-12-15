@@ -32,7 +32,7 @@ float TEMP_LOW = 10;
 
 #define PHSensorPin A0          // the pH meter Analog output is connected with the Arduino’s Analog
 float PH_LOW = 6.5;
-float PH_HIGH = 8.5;
+float PH_HIGH = 8.0;
 
 #include <DFRobot_Geiger.h>
 #if defined ESP32
@@ -48,6 +48,7 @@ float GEIGER_HIGH = 200;
 
 Servo s;
 #define pump_pin 5
+#define pump_time 10000
 
 #include <TinyGPS.h>
 TinyGPS gps;
@@ -445,12 +446,13 @@ void setup()
 {
   setupTempSensor();
   setupPHSensor();
-  setupRadioactiveSensor();
+  //setupRadioactiveSensor();
   setupPump();
   setupGPS();
   setupSpectral();
   last_time = millis();
-  //setupRedLED();
+  setupRedLED();
+  digitalWrite(RED_LED_PIN, LOW);
   // setupGreenLED();
 }
 
@@ -473,7 +475,7 @@ void loop()
     Serial.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
     Serial.println(" "); 
 
-    fillContainer(50000);
+    //fillContainer(pump_time);
 
     // allow sensors to get to the correct values
     delay(1000);
@@ -499,7 +501,7 @@ void loop()
     delay(800);
     digitalWrite(13, LOW); 
 
-    float nSvh = getRadioactiveValues();
+    float nSvh = 0; //getRadioactiveValues();
     Serial.print("nSvh:");  
     Serial.print(nSvh,2);
     Serial.println(" ");
@@ -510,22 +512,25 @@ void loop()
     Serial.println(" ");
 
     // chek if values are within the desired range
-    int res = analize(temperature, phValue, nSvh, R);
+    int res = analize(temperature / 1000, phValue, nSvh, R);
+    Serial.print("res: ");
+    Serial.print(res, 2);
+    Serial.println(" ");
     if (res)
     {
       Serial.print("Water quality analysis: FAIL");
       //greenLEDOff();
-      //redLEDOn();
+      redLEDOn();
     }
     else
     {
       Serial.print("Water quality analysis: PASS");
-      //redLEDOff();
+      redLEDOff();
       // greenLEDOn();
     }
     Serial.println(" ");
 
-    drainContainer(50000);
+    //drainContainer(pump_time);
     Serial.println("----------");
 
   }
