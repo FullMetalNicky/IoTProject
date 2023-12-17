@@ -32,20 +32,17 @@ void saveData(String data)
   Serial.println("Readable block size: " + String((unsigned int) blockDevice.get_read_size())  + " bytes");
   Serial.println("Programmable block size: " + String((unsigned int) programBlockSize) + " bytes");
   Serial.println("Erasable block size: " + String((unsigned int) eraseBlockSize / 1024) + " KB");
-     
-  //String newMessage = "Random number: " + String(random(1024));
-  String newMessage = data;
-  
+    
   // Calculate the amount of bytes needed to store the message
   // This has to be a multiple of the program block size
-  const auto messageSize = newMessage.length() + 1; // C String takes 1 byte for NULL termination
+  const auto messageSize = data.length() + 1; // C String takes 1 byte for NULL termination
   const unsigned int requiredEraseBlocks = ceil(messageSize / (float)  eraseBlockSize);
   const unsigned int requiredProgramBlocks = ceil(messageSize / (float)  programBlockSize);
   const auto dataSize = requiredProgramBlocks * programBlockSize;  
   char buffer[dataSize] {};
 
   // Read back what was stored at previous execution
-  Serial.println("Reading previous message...");
+  Serial.println("Reading previously stored data...");
   blockDevice.read(buffer, 0, dataSize);
   Serial.println(buffer);
 
@@ -54,16 +51,15 @@ void saveData(String data)
   blockDevice.erase(0, requiredEraseBlocks * eraseBlockSize);
 
   // Write an updated message to the first block
-  Serial.println("Writing new message...");
-  Serial.println(newMessage);  
-  blockDevice.program(newMessage.c_str(), 0, dataSize);
+  Serial.println("Writing data...");
+  Serial.println(data);  
+  blockDevice.program(data.c_str(), 0, dataSize);
 
   // Deinitialize the device
   blockDevice.deinit();
   Serial.println("Done.");
 
 }
-
 
 
 void setup() {
