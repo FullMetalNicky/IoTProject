@@ -32,7 +32,7 @@ float TEMP_LOW = 10;
 
 #define PHSensorPin A0          // the pH meter Analog output is connected with the Arduino’s Analog
 float PH_LOW = 6.5;
-float PH_HIGH = 8.0;
+float PH_HIGH = 8.5;
 
 #include <DFRobot_Geiger.h>
 #if defined ESP32
@@ -48,7 +48,8 @@ float GEIGER_HIGH = 200;
 
 Servo s;
 #define pump_pin 5
-#define pump_time 10000
+#define pump_time 50000
+#define wait_time 1000
 
 #include <TinyGPS.h>
 TinyGPS gps;
@@ -66,6 +67,13 @@ long int dtime = 0; // 1000 * 60 * 60 * 24
 
 #define RED_LED_PIN 1
 #define GREEN_LED_PIN 2
+
+#include <FlashIAPBlockDevice.h>
+#include "FlashIAPLimits.h"
+
+using namespace mbed;
+
+
 /*
  * If defined: sensors powered parasitically.
  */
@@ -442,11 +450,69 @@ void greenLEDOff()
   digitalWrite(GREEN_LED_PIN, LOW);
 }
 
+void saveData(String data)
+{
+
+  // Get limits of the the internal flash of the microcontroller
+  auto [flashSize, startAddress, iapSize] = getFlashIAPLimits();
+
+  // Serial.print("Flash Size: ");
+  // Serial.print(flashSize / 1024.0 / 1024.0);
+  // Serial.println(" MB");
+  // Serial.print("FlashIAP Start Address: 0x");
+  // Serial.println(startAddress, HEX);
+  // Serial.print("FlashIAP Size: ");
+  // Serial.print(iapSize / 1024.0 / 1024.0);
+  // Serial.println(" MB");
+
+  // Create a block device on the available space of the flash
+  FlashIAPBlockDevice blockDevice(startAddress, iapSize);
+
+  // Initialize the Flash IAP block device and print the memory layout
+  blockDevice.init();
+  
+  const auto eraseBlockSize = blockDevice.get_erase_size();
+  const auto programBlockSize = blockDevice.get_program_size();
+
+  Serial.println("Block device size: " + String((unsigned int) blockDevice.size() / 1024.0 / 1024.0) + " MB");
+  Serial.println("Readable block size: " + String((unsigned int) blockDevice.get_read_size())  + " bytes");
+  Serial.println("Programmable block size: " + String((unsigned int) programBlockSize) + " bytes");
+  Serial.println("Erasable block size: " + String((unsigned int) eraseBlockSize / 1024) + " KB");
+    
+  // Calculate the amount of bytes needed to store the message
+  // This has to be a multiple of the program block size
+  const auto messageSize = data.length() + 1; // C String takes 1 byte for NULL termination
+  const unsigned int requiredEraseBlocks = ceil(messageSize / (float)  eraseBlockSize);
+  const unsigned int requiredProgramBlocks = ceil(messageSize / (float)  programBlockSize);
+  const auto dataSize = requiredProgramBlocks * programBlockSize;  
+  char buffer[dataSize] {};
+
+  // Read back what was stored at previous execution
+  Serial.println("Reading previously stored data...");
+  blockDevice.read(buffer, 0, dataSize);
+  Serial.println(buffer);
+
+  // Erase a block starting at the offset 0 relative
+  // to the block device start address
+  blockDevice.erase(0, requiredEraseBlocks * eraseBlockSize);
+
+  // Write an updated message to the first block
+  Serial.println("Writing data...");
+  Serial.println(data);  
+  blockDevice.program(data.c_str(), 0, dataSize);
+
+  // Deinitialize the device
+  blockDevice.deinit();
+  Serial.println("Done.");
+
+}
+
+
 void setup()
 {
   setupTempSensor();
   setupPHSensor();
-  //setupRadioactiveSensor();
+  setupRadioactiveSensor();
   setupPump();
   setupGPS();
   setupSpectral();
@@ -475,10 +541,10 @@ void loop()
     Serial.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
     Serial.println(" "); 
 
-    //fillContainer(pump_time);
+    fillContainer(pump_time);
 
     // allow sensors to get to the correct values
-    delay(1000);
+    delay(wait_time);
 
     long temperature = getTemperature();
     Serial.print("Temp:");
@@ -486,9 +552,11 @@ void loop()
         temperature = -temperature;
         Serial.print('-');
     }
-    Serial.print(temperature / 1000);
-    Serial.print('.');
-    Serial.print(temperature % 1000);
+    float temp = temperature / 1000 + float(temperature % 1000) / 1000.0;
+    Serial.print(temp);
+    // Serial.print(temperature / 1000);
+    // Serial.print('.');
+    // Serial.print(temperature % 1000);
     Serial.print(" C");
 
     Serial.println();
@@ -501,7 +569,7 @@ void loop()
     delay(800);
     digitalWrite(13, LOW); 
 
-    float nSvh = 0; //getRadioactiveValues();
+    float nSvh = getRadioactiveValues();
     Serial.print("nSvh:");  
     Serial.print(nSvh,2);
     Serial.println(" ");
@@ -512,10 +580,7 @@ void loop()
     Serial.println(" ");
 
     // chek if values are within the desired range
-    int res = analize(temperature / 1000, phValue, nSvh, R);
-    Serial.print("res: ");
-    Serial.print(res, 2);
-    Serial.println(" ");
+    int res = analize(temp, phValue, nSvh, R);
     if (res)
     {
       Serial.print("Water quality analysis: FAIL");
@@ -530,7 +595,14 @@ void loop()
     }
     Serial.println(" ");
 
-    //drainContainer(pump_time);
+    //long flat1 = int(flat);
+    //long flat2 = flat % 1;
+
+
+    String data = String(curr_time) + "," + String(flat) + "," + String(flon) + "," + String(temp) + "," + String(phValue) + "," + String(nSvh) + "," + String(R) + "," + String(res);
+    saveData(data);
+
+    drainContainer(pump_time);
     Serial.println("----------");
 
   }
