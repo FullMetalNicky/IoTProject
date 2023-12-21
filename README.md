@@ -7,7 +7,9 @@ the actuator elements (pumps), and will transfer them back to the water source o
 analysis is done
 
 ## Demo
-TBD
+
+https://github.com/FullMetalNicky/IoTProject/assets/25340794/92b1e9a9-4a76-47d5-8e2c-b75113e646b5
+
 
 ## Installation 
 The system was tested on Arduino Portenta H7, and may have compatibility issues with other hardware. 
